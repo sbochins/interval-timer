@@ -336,9 +336,15 @@
   }
   .ctrl-btn:active { transform: scale(0.98); }
   .ctrl-btn.primary { background: currentColor; }
-  .ctrl-btn.primary span { color: var(--bg); }
-  body.phase-warmup .ctrl-btn.primary span,
-  body.phase-done .ctrl-btn.primary span { color: #0a0a0a; }
+  /* The primary button fills with the screen's text color (currentColor), which
+     is dark on warmup/done and light on work/rest/cooldown. Make the label the
+     phase color so it always contrasts against that fill instead of vanishing. */
+  .ctrl-btn.primary span { color: var(--fg); }
+  body.phase-warmup   .ctrl-btn.primary span { color: var(--warmup); }
+  body.phase-work     .ctrl-btn.primary span { color: var(--work); }
+  body.phase-rest     .ctrl-btn.primary span { color: var(--rest); }
+  body.phase-cooldown .ctrl-btn.primary span { color: var(--cooldown); }
+  body.phase-done     .ctrl-btn.primary span { color: var(--done); }
 </style>
 </head>
 <body>
@@ -460,6 +466,16 @@
     osc.start(); osc.stop(audioCtx.currentTime + duration + 0.02);
   }
   function vibrate(p) { if (navigator.vibrate) navigator.vibrate(p); }
+
+  // Subtle click feedback on any button press. Runs inside the tap gesture, so
+  // it also unlocks the AudioContext on iOS for the rest of the session.
+  function clickSound() {
+    ensureAudio();
+    beep(660, 0.03, 0.18);
+  }
+  document.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button')) { clickSound(); vibrate(10); }
+  }, true);
 
   // Config rendering
   const blocksList = document.getElementById('blocksList');
