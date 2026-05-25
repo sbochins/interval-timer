@@ -891,7 +891,9 @@
 
   document.getElementById('startBtn').addEventListener('click', start);
   stopBtn.addEventListener('click', () => { if (confirm('Stop workout?')) stop(); });
-  pauseBtn.addEventListener('click', togglePause);
+  // pauseBtn uses .onclick (set in start(), swapped to stop() on the DONE screen).
+  // Don't also addEventListener here, or each tap fires the handler twice and
+  // pause/resume cancel out — making the button look dead.
 
   document.addEventListener('touchmove', e => {
     if (!timerScreen.classList.contains('hidden')) e.preventDefault();

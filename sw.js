@@ -1,5 +1,5 @@
 // Bump CACHE version whenever the app shell changes to force an update.
-const CACHE = 'interval-timer-v1';
+const CACHE = 'interval-timer-v2';
 const ASSETS = [
   './',
   './index.html',
