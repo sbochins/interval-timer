@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#0a0a0a" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="Interval" />
+<title>Interval</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="favicon.png" type="image/png" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;700;900&family=Archivo+Black&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --panel: #141414;
+    --line: #262626;
+    --fg: #f5f5f4;
+    --muted: #737373;
+    --warmup:  #f59e0b;
+    --work:    #ef4444;
+    --rest:    #10b981;
+    --cooldown:#3b82f6;
+    --done:    #a78bfa;
+    --safe-top: env(safe-area-inset-top);
+    --safe-bottom: env(safe-area-inset-bottom);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg); color: var(--fg);
+    font-family: 'Archivo', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    user-select: none; -webkit-user-select: none;
+    touch-action: manipulation;
+    overflow: hidden;
+  }
+  body {
+    display: flex; flex-direction: column;
+    transition: background-color .4s ease;
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
+  }
+  body.phase-warmup  { background: var(--warmup);  color: #0a0a0a; }
+  body.phase-work    { background: var(--work);    color: #fafafa; }
+  body.phase-rest    { background: var(--rest);    color: #fafafa; }
+  body.phase-cooldown{ background: var(--cooldown);color: #fafafa; }
+  body.phase-done    { background: var(--done);    color: #0a0a0a; }
+
+  input { font-family: inherit; }
+  button { font-family: inherit; cursor: pointer; }
+
+  #configScreen { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  header.top {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 24px 8px;
+  }
+  .brand {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 13px; letter-spacing: 0.3em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .brand::before { content: "■"; margin-right: 10px; color: var(--fg); }
+
+  .workout-name {
+    width: 100%; background: transparent; border: none; color: var(--fg);
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 28px; letter-spacing: -0.01em;
+    padding: 0 24px 12px; outline: none;
+  }
+  .total-summary {
+    padding: 0 24px 16px;
+    font-size: 12px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--muted);
+    font-weight: 700;
+  }
+
+  .blocks {
+    flex: 1; overflow-y: auto;
+    padding: 0 24px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .block {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+  .block-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 18px;
+  }
+  .block-row:active { background: #1f1f1f; }
+  .block-name {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 16px; letter-spacing: 0.02em;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .swatch { width: 10px; height: 28px; border-radius: 3px; }
+  .block-time {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 16px; font-variant-numeric: tabular-nums;
+    color: var(--muted);
+  }
+  .repeat-children {
+    border-top: 1px solid var(--line);
+    padding: 8px 18px 12px 30px;
+  }
+  .repeat-children .child {
+    display: flex; justify-content: space-between;
+    padding: 6px 0; font-size: 14px; color: #a3a3a3;
+  }
+  .repeat-children .child .lbl { display: flex; align-items: center; gap: 8px; }
+  .repeat-children .child .lbl .swatch { width: 6px; height: 14px; }
+  .repeat-badge {
+    display: inline-block;
+    background: var(--fg); color: var(--bg);
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 11px; letter-spacing: 0.1em;
+    padding: 3px 8px; border-radius: 4px; margin-right: 8px;
+  }
+
+  .add-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    padding: 8px 24px 16px;
+  }
+  .add-row button {
+    height: 48px; background: transparent; color: var(--muted);
+    border: 1px dashed var(--line); border-radius: 12px;
+    font-size: 12px; letter-spacing: 0.2em;
+    font-weight: 700; text-transform: uppercase;
+  }
+  .add-row button:active { background: #141414; color: var(--fg); }
+
+  .start-btn {
+    margin: 0 24px 24px; height: 72px;
+    background: var(--fg); color: var(--bg);
+    border: none; border-radius: 14px;
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 20px; letter-spacing: 0.25em;
+  }
+  .start-btn:active { transform: scale(0.98); }
+  .start-btn:disabled { opacity: 0.3; }
+
+  .sheet-bg {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s ease;
+    z-index: 10;
+  }
+  .sheet-bg.open { opacity: 1; pointer-events: auto; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    background: #0f0f0f;
+    border-top: 1px solid var(--line);
+    border-radius: 20px 20px 0 0;
+    padding: 16px 20px calc(24px + var(--safe-bottom));
+    transform: translateY(100%);
+    transition: transform .3s cubic-bezier(.2,.8,.2,1);
+    z-index: 11;
+    max-height: 92vh; overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .sheet.open { transform: translateY(0); }
+  .sheet-handle {
+    width: 40px; height: 4px;
+    background: var(--line); border-radius: 2px;
+    margin: 0 auto 16px;
+  }
+  .sheet h3 {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 14px; letter-spacing: 0.25em;
+    text-transform: uppercase; color: var(--muted);
+    margin: 0 0 16px;
+  }
+
+  .field { margin-bottom: 18px; }
+  .field label {
+    display: block;
+    font-size: 11px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--muted);
+    font-weight: 700; margin-bottom: 8px;
+  }
+  .field input[type=text] {
+    width: 100%; height: 48px;
+    background: var(--panel);
+    border: 1px solid var(--line); border-radius: 10px;
+    color: var(--fg);
+    font-size: 16px; padding: 0 14px;
+    outline: none;
+  }
+  .field input[type=text]:focus { border-color: var(--muted); }
+  .time-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .stepper {
+    display: grid; grid-template-columns: 44px 1fr 44px;
+    align-items: center;
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--panel); overflow: hidden;
+  }
+  .stepper button {
+    height: 48px; background: transparent; border: none;
+    color: var(--fg); font-size: 22px; font-weight: 700;
+  }
+  .stepper button:active { background: #1f1f1f; }
+  .stepper .v {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 20px; text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .stepper .v small {
+    display: block;
+    font-family: 'Archivo', sans-serif;
+    font-size: 9px; font-weight: 400;
+    letter-spacing: 0.2em; color: var(--muted);
+    margin-top: 1px; text-transform: uppercase;
+  }
+
+  .pills {
+    display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px;
+  }
+  .pills button {
+    height: 44px;
+    background: var(--panel);
+    border: 1px solid var(--line); border-radius: 10px;
+    color: var(--muted);
+    font-size: 11px; letter-spacing: 0.15em;
+    font-weight: 700; text-transform: uppercase;
+  }
+  .pills button.active { background: currentColor; border-color: currentColor; }
+  .pills button.active span { color: #0a0a0a; }
+  .pills button[data-int=warmup]   { color: var(--warmup); }
+  .pills button[data-int=work]     { color: var(--work); }
+  .pills button[data-int=rest]     { color: var(--rest); }
+  .pills button[data-int=cooldown] { color: var(--cooldown); }
+  .pills button:not(.active) span { color: var(--muted); }
+
+  .sub-seg {
+    background: var(--panel);
+    border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px; margin-bottom: 10px;
+  }
+  .sub-seg-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 10px;
+  }
+  .sub-seg-title {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 12px; letter-spacing: 0.2em;
+    color: var(--muted); text-transform: uppercase;
+  }
+  .sub-seg-remove {
+    background: transparent; border: none;
+    color: var(--muted); font-size: 18px;
+    width: 32px; height: 32px;
+  }
+  .add-sub {
+    width: 100%; height: 44px;
+    background: transparent; color: var(--muted);
+    border: 1px dashed var(--line); border-radius: 10px;
+    font-size: 11px; letter-spacing: 0.2em;
+    font-weight: 700; text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+
+  .sheet-actions {
+    display: grid; grid-template-columns: 1fr 2fr; gap: 10px;
+    margin-top: 8px;
+  }
+  .sheet-actions button {
+    height: 56px; border-radius: 12px; border: none;
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 13px; letter-spacing: 0.25em;
+  }
+  .sheet-actions .delete {
+    background: transparent; border: 1px solid #444; color: #f87171;
+  }
+  .sheet-actions .save { background: var(--fg); color: var(--bg); }
+
+  #timerScreen {
+    flex: 1; display: flex; flex-direction: column;
+    padding: 24px;
+  }
+  #timerScreen.hidden, #configScreen.hidden { display: none; }
+
+  .top-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 12px; letter-spacing: 0.25em;
+    text-transform: uppercase; opacity: 0.9;
+  }
+  .phase-label {
+    text-align: center;
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 20px; letter-spacing: 0.3em;
+    text-transform: uppercase;
+    margin-top: 28px;
+  }
+  .round-line {
+    text-align: center;
+    font-size: 12px; letter-spacing: 0.25em;
+    font-weight: 700;
+    margin-top: 6px; opacity: 0.7;
+  }
+  .countdown {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 26vh; line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.04em;
+  }
+  .next-up {
+    text-align: center;
+    font-size: 12px; letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    opacity: 0.75; font-weight: 700;
+    min-height: 16px;
+  }
+  .controls {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  }
+  .ctrl-btn {
+    height: 64px;
+    border: 2px solid currentColor; background: transparent; color: inherit;
+    border-radius: 14px;
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 14px; letter-spacing: 0.25em;
+  }
+  .ctrl-btn:active { transform: scale(0.98); }
+  .ctrl-btn.primary { background: currentColor; }
+  .ctrl-btn.primary span { color: var(--bg); }
+  body.phase-warmup .ctrl-btn.primary span,
+  body.phase-done .ctrl-btn.primary span { color: #0a0a0a; }
+</style>
+</head>
+<body>
+
+<div id="configScreen">
+  <header class="top"><span class="brand">Interval</span></header>
+  <input class="workout-name" id="workoutName" type="text" placeholder="Workout name" />
+  <div class="total-summary" id="totalSummary">0:00 total</div>
+  <div class="blocks" id="blocksList"></div>
+  <div class="add-row">
+    <button data-add="segment">+ Segment</button>
+    <button data-add="repeat">+ Cycle</button>
+  </div>
+  <button class="start-btn" id="startBtn">START</button>
+</div>
+
+<div id="timerScreen" class="hidden">
+  <div class="top-bar">
+    <div id="elapsedLabel">00:00</div>
+    <div id="remainingLabel">-00:00</div>
+  </div>
+  <div class="phase-label" id="phaseLabel">—</div>
+  <div class="round-line" id="roundLine"></div>
+  <div class="countdown" id="countdown">0</div>
+  <div class="next-up" id="nextUp"></div>
+  <div class="controls">
+    <button class="ctrl-btn" id="stopBtn">STOP</button>
+    <button class="ctrl-btn primary" id="pauseBtn"><span>PAUSE</span></button>
+  </div>
+</div>
+
+<div class="sheet-bg" id="sheetBg"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div id="sheetBody"></div>
+</div>
+
+<script>
+(() => {
+  const INTENSITIES = ['warmup', 'work', 'rest', 'cooldown'];
+  function uid() { return Math.random().toString(36).slice(2, 9); }
+  function fmtTime(s) {
+    s = Math.max(0, Math.round(s));
+    return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+
+  const DEFAULT_WORKOUT = {
+    name: "Bike Intervals",
+    blocks: [
+      { id: uid(), type: 'segment', name: 'Warmup', seconds: 300, intensity: 'warmup' },
+      { id: uid(), type: 'repeat', reps: 6, segments: [
+        { id: uid(), name: 'Hard', seconds: 60, intensity: 'work' },
+        { id: uid(), name: 'Easy', seconds: 90, intensity: 'rest' },
+      ]},
+      { id: uid(), type: 'segment', name: 'Cooldown', seconds: 300, intensity: 'cooldown' },
+    ],
+  };
+
+  let workout = loadWorkout();
+  let run = null;
+  let rafId = null;
+  let wakeLock = null;
+  let audioCtx = null;
+  let lastBeepSecond = -1;
+
+  function loadWorkout() {
+    try {
+      const raw = localStorage.getItem('workout_v2');
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return structuredClone(DEFAULT_WORKOUT);
+  }
+  function saveWorkout() {
+    localStorage.setItem('workout_v2', JSON.stringify(workout));
+  }
+
+  // Wake lock
+  async function requestWakeLock() {
+    if (!('wakeLock' in navigator)) return;
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    } catch (e) { console.warn('Wake lock failed:', e); }
+  }
+  async function releaseWakeLock() {
+    if (wakeLock) { try { await wakeLock.release(); } catch {} wakeLock = null; }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    if (run && !run.paused) {
+      if (!wakeLock) requestWakeLock();
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+      // Force an immediate update so the timer snaps to the correct phase
+      // after the page was suspended in the background (e.g. screen locked).
+      cancelAnimationFrame(rafId);
+      tick();
+    }
+  });
+
+  // Audio
+  function ensureAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+  function beep(freq = 880, duration = 0.1, vol = 0.3) {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.frequency.value = freq; osc.type = 'sine';
+    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + 0.01);
+    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + duration);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + duration + 0.02);
+  }
+  function vibrate(p) { if (navigator.vibrate) navigator.vibrate(p); }
+
+  // Config rendering
+  const blocksList = document.getElementById('blocksList');
+  const workoutNameEl = document.getElementById('workoutName');
+  const totalSummary = document.getElementById('totalSummary');
+
+  function totalSeconds() {
+    let t = 0;
+    workout.blocks.forEach(b => {
+      if (b.type === 'segment') t += b.seconds;
+      else if (b.type === 'repeat') {
+        const inner = b.segments.reduce((a, s) => a + s.seconds, 0);
+        t += inner * b.reps;
+      }
+    });
+    return t;
+  }
+
+  function renderConfig() {
+    workoutNameEl.value = workout.name;
+    totalSummary.textContent = `${fmtTime(totalSeconds())} total`;
+    blocksList.innerHTML = '';
+    workout.blocks.forEach(b => {
+      const el = document.createElement('div');
+      el.className = 'block';
+      if (b.type === 'segment') {
+        el.innerHTML = `
+          <div class="block-row">
+            <div class="block-name">
+              <div class="swatch" style="background: var(--${b.intensity})"></div>
+              ${escapeHtml(b.name)}
+            </div>
+            <div class="block-time">${fmtTime(b.seconds)}</div>
+          </div>`;
+      } else {
+        const inner = b.segments.reduce((a, s) => a + s.seconds, 0);
+        const subRows = b.segments.map(s => `
+          <div class="child">
+            <div class="lbl">
+              <div class="swatch" style="background: var(--${s.intensity})"></div>
+              ${escapeHtml(s.name)}
+            </div>
+            <div>${fmtTime(s.seconds)}</div>
+          </div>`).join('');
+        el.innerHTML = `
+          <div class="block-row">
+            <div class="block-name">
+              <span class="repeat-badge">${b.reps}×</span>Cycle
+            </div>
+            <div class="block-time">${fmtTime(inner * b.reps)}</div>
+          </div>
+          <div class="repeat-children">${subRows}</div>`;
+      }
+      el.addEventListener('click', () => openEditor(b.id));
+      blocksList.appendChild(el);
+    });
+    document.getElementById('startBtn').disabled = totalSeconds() === 0;
+  }
+
+  workoutNameEl.addEventListener('input', e => {
+    workout.name = e.target.value;
+    saveWorkout();
+  });
+
+  document.querySelectorAll('.add-row button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const kind = btn.dataset.add;
+      let nb;
+      if (kind === 'segment') {
+        nb = { id: uid(), type: 'segment', name: 'Segment', seconds: 60, intensity: 'work' };
+      } else {
+        nb = { id: uid(), type: 'repeat', reps: 4, segments: [
+          { id: uid(), name: 'Hard', seconds: 60, intensity: 'work' },
+          { id: uid(), name: 'Easy', seconds: 60, intensity: 'rest' },
+        ]};
+      }
+      workout.blocks.push(nb);
+      saveWorkout(); renderConfig(); openEditor(nb.id);
+    });
+  });
+
+  // Sheet editor
+  const sheet = document.getElementById('sheet');
+  const sheetBg = document.getElementById('sheetBg');
+  const sheetBody = document.getElementById('sheetBody');
+  let editingId = null;
+  let editingDraft = null;
+
+  sheetBg.addEventListener('click', closeSheet);
+
+  function openEditor(id) {
+    const b = workout.blocks.find(x => x.id === id);
+    if (!b) return;
+    editingId = id;
+    editingDraft = structuredClone(b);
+    renderSheet();
+    sheet.classList.add('open');
+    sheetBg.classList.add('open');
+  }
+  function closeSheet() {
+    sheet.classList.remove('open');
+    sheetBg.classList.remove('open');
+    editingId = null; editingDraft = null;
+  }
+
+  function stepperHtml(key, value, min, max, step) {
+    return `
+      <div class="stepper" data-key="${key}" data-min="${min}" data-max="${max}" data-step="${step}">
+        <button data-act="dec">−</button>
+        <div class="v"><span class="num">${value}</span><small>${{min:'min',sec:'sec',reps:'reps'}[key]||key}</small></div>
+        <button data-act="inc">+</button>
+      </div>`;
+  }
+
+  function wireStepper(el, getVal, setVal) {
+    const numEl = el.querySelector('.num');
+    const min = +el.dataset.min, max = +el.dataset.max, step = +el.dataset.step;
+    el.addEventListener('click', e => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      const cur = getVal();
+      const delta = btn.dataset.act === 'inc' ? step : -step;
+      const next = Math.max(min, Math.min(max, cur + delta));
+      setVal(next);
+      numEl.textContent = next;
+    });
+  }
+
+  function renderSheet() {
+    const d = editingDraft;
+    if (d.type === 'segment') {
+      sheetBody.innerHTML = `
+        <h3>Edit Segment</h3>
+        <div class="field">
+          <label>Name</label>
+          <input type="text" id="segName" value="${escapeHtml(d.name)}" />
+        </div>
+        <div class="field">
+          <label>Duration</label>
+          <div class="time-row">
+            ${stepperHtml('min', Math.floor(d.seconds/60), 0, 60, 1)}
+            ${stepperHtml('sec', d.seconds%60, 0, 55, 5)}
+          </div>
+        </div>
+        <div class="field">
+          <label>Intensity</label>
+          <div class="pills">
+            ${INTENSITIES.map(i => `
+              <button data-int="${i}" class="${d.intensity===i?'active':''}"><span>${i}</span></button>
+            `).join('')}
+          </div>
+        </div>
+        <div class="sheet-actions">
+          <button class="delete" id="deleteBtn">DELETE</button>
+          <button class="save" id="saveBtn">DONE</button>
+        </div>
+      `;
+      document.getElementById('segName').addEventListener('input', e => { d.name = e.target.value; });
+      const ss = sheetBody.querySelectorAll('.stepper');
+      let mins = Math.floor(d.seconds/60), secs = d.seconds%60;
+      wireStepper(ss[0], () => mins, v => { mins = v; d.seconds = mins*60 + secs; });
+      wireStepper(ss[1], () => secs, v => { secs = v; d.seconds = mins*60 + secs; });
+      sheetBody.querySelectorAll('.pills button').forEach(b => {
+        b.addEventListener('click', () => {
+          d.intensity = b.dataset.int;
+          sheetBody.querySelectorAll('.pills button').forEach(x => x.classList.remove('active'));
+          b.classList.add('active');
+        });
+      });
+      document.getElementById('saveBtn').addEventListener('click', commitEdit);
+      document.getElementById('deleteBtn').addEventListener('click', deleteEditing);
+    } else {
+      sheetBody.innerHTML = `
+        <h3>Edit Cycle</h3>
+        <div class="field">
+          <label>Repetitions</label>
+          ${stepperHtml('reps', d.reps, 1, 99, 1)}
+        </div>
+        <div class="field">
+          <label>Segments per cycle</label>
+          <div id="subSegList"></div>
+          <button class="add-sub" id="addSub">+ Add Segment</button>
+        </div>
+        <div class="sheet-actions">
+          <button class="delete" id="deleteBtn">DELETE</button>
+          <button class="save" id="saveBtn">DONE</button>
+        </div>
+      `;
+      let reps = d.reps;
+      wireStepper(sheetBody.querySelector('.stepper'), () => reps, v => { reps = v; d.reps = v; });
+
+      function renderSubs() {
+        const list = document.getElementById('subSegList');
+        list.innerHTML = '';
+        d.segments.forEach((s, i) => {
+          const el = document.createElement('div');
+          el.className = 'sub-seg';
+          el.innerHTML = `
+            <div class="sub-seg-header">
+              <div class="sub-seg-title">Segment ${i+1}</div>
+              <button class="sub-seg-remove">✕</button>
+            </div>
+            <div class="field">
+              <label>Name</label>
+              <input type="text" class="sub-name" value="${escapeHtml(s.name)}" />
+            </div>
+            <div class="field">
+              <label>Duration</label>
+              <div class="time-row">
+                ${stepperHtml('min', Math.floor(s.seconds/60), 0, 60, 1)}
+                ${stepperHtml('sec', s.seconds%60, 0, 55, 5)}
+              </div>
+            </div>
+            <div class="field">
+              <label>Intensity</label>
+              <div class="pills">
+                ${INTENSITIES.map(it => `
+                  <button data-int="${it}" class="${s.intensity===it?'active':''}"><span>${it}</span></button>
+                `).join('')}
+              </div>
+            </div>
+          `;
+          el.querySelector('.sub-name').addEventListener('input', e => { s.name = e.target.value; });
+          const ss = el.querySelectorAll('.stepper');
+          let mins = Math.floor(s.seconds/60), secs = s.seconds%60;
+          wireStepper(ss[0], () => mins, v => { mins = v; s.seconds = mins*60 + secs; });
+          wireStepper(ss[1], () => secs, v => { secs = v; s.seconds = mins*60 + secs; });
+          el.querySelectorAll('.pills button').forEach(b => {
+            b.addEventListener('click', () => {
+              s.intensity = b.dataset.int;
+              el.querySelectorAll('.pills button').forEach(x => x.classList.remove('active'));
+              b.classList.add('active');
+            });
+          });
+          el.querySelector('.sub-seg-remove').addEventListener('click', () => {
+            if (d.segments.length <= 1) return;
+            d.segments.splice(i, 1);
+            renderSubs();
+          });
+          list.appendChild(el);
+        });
+      }
+      renderSubs();
+
+      document.getElementById('addSub').addEventListener('click', () => {
+        d.segments.push({ id: uid(), name: 'Segment', seconds: 60, intensity: 'work' });
+        renderSubs();
+      });
+      document.getElementById('saveBtn').addEventListener('click', commitEdit);
+      document.getElementById('deleteBtn').addEventListener('click', deleteEditing);
+    }
+  }
+
+  function commitEdit() {
+    const idx = workout.blocks.findIndex(b => b.id === editingId);
+    if (idx >= 0) workout.blocks[idx] = editingDraft;
+    saveWorkout(); renderConfig(); closeSheet();
+  }
+  function deleteEditing() {
+    const idx = workout.blocks.findIndex(b => b.id === editingId);
+    if (idx >= 0) workout.blocks.splice(idx, 1);
+    saveWorkout(); renderConfig(); closeSheet();
+  }
+
+  // Flatten + run
+  function flatten() {
+    const phases = [];
+    workout.blocks.forEach(b => {
+      if (b.type === 'segment') {
+        if (b.seconds > 0) phases.push({
+          name: b.name, seconds: b.seconds, intensity: b.intensity,
+        });
+      } else {
+        for (let r = 1; r <= b.reps; r++) {
+          b.segments.forEach(s => {
+            if (s.seconds > 0) phases.push({
+              name: s.name, seconds: s.seconds, intensity: s.intensity,
+              rep: r, totalReps: b.reps,
+            });
+          });
+        }
+      }
+    });
+    return phases;
+  }
+
+  const configScreen = document.getElementById('configScreen');
+  const timerScreen = document.getElementById('timerScreen');
+  const countdownEl = document.getElementById('countdown');
+  const phaseLabel = document.getElementById('phaseLabel');
+  const roundLine = document.getElementById('roundLine');
+  const elapsedLabel = document.getElementById('elapsedLabel');
+  const remainingLabel = document.getElementById('remainingLabel');
+  const nextUpEl = document.getElementById('nextUp');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const stopBtn = document.getElementById('stopBtn');
+
+  // Elapsed time is derived from the wall clock (performance.now), not by
+  // counting frames. This keeps the timer correct across screen locks and
+  // app switches on iOS, where rAF/JS are suspended in the background — when
+  // you return, we recompute the current phase from how much time really
+  // passed rather than resuming a frozen countdown.
+  function currentElapsedMs() {
+    if (!run) return 0;
+    return run.paused ? run.baseElapsedMs : run.baseElapsedMs + (performance.now() - run.resumedAt);
+  }
+
+  function start() {
+    const phases = flatten();
+    if (!phases.length) return;
+    ensureAudio(); requestWakeLock();
+    let acc = 0;
+    const cumEnds = phases.map(p => (acc += p.seconds * 1000));
+    const totalSec = phases.reduce((a, p) => a + p.seconds, 0);
+    run = {
+      phases, idx: 0,
+      cumEnds,
+      totalMs: acc,
+      totalSec,
+      paused: false,
+      baseElapsedMs: 0,
+      resumedAt: performance.now(),
+    };
+    configScreen.classList.add('hidden');
+    timerScreen.classList.remove('hidden');
+    pauseBtn.querySelector('span').textContent = 'PAUSE';
+    pauseBtn.onclick = togglePause;
+    applyPhase();
+    lastBeepSecond = -1;
+    tick();
+  }
+
+  function stop() {
+    cancelAnimationFrame(rafId);
+    releaseWakeLock();
+    run = null;
+    document.body.className = '';
+    timerScreen.classList.add('hidden');
+    configScreen.classList.remove('hidden');
+  }
+
+  function togglePause() {
+    if (!run) return;
+    if (run.paused) {
+      run.resumedAt = performance.now();
+      run.paused = false;
+      pauseBtn.querySelector('span').textContent = 'PAUSE';
+      requestWakeLock();
+      tick();
+    } else {
+      run.baseElapsedMs = currentElapsedMs();
+      run.paused = true;
+      cancelAnimationFrame(rafId);
+      pauseBtn.querySelector('span').textContent = 'RESUME';
+      releaseWakeLock();
+    }
+  }
+
+  function applyPhase() {
+    const p = run.phases[run.idx];
+    document.body.className = 'phase-' + p.intensity;
+    phaseLabel.textContent = p.name;
+    roundLine.textContent = p.rep ? `Round ${p.rep} of ${p.totalReps}` : '';
+    const next = run.phases[run.idx + 1];
+    nextUpEl.textContent = next ? `Next: ${next.name} · ${fmtTime(next.seconds)}` : 'Final segment';
+  }
+
+  function finish() {
+    cancelAnimationFrame(rafId);
+    releaseWakeLock();
+    document.body.className = 'phase-done';
+    phaseLabel.textContent = 'DONE';
+    roundLine.textContent = '';
+    countdownEl.textContent = '✓';
+    nextUpEl.textContent = workout.name;
+    elapsedLabel.textContent = fmtTime(run.totalSec);
+    remainingLabel.textContent = '-0:00';
+    pauseBtn.querySelector('span').textContent = 'CLOSE';
+    pauseBtn.onclick = () => stop();
+    beep(660, 0.15);
+    setTimeout(() => beep(880, 0.15), 180);
+    setTimeout(() => beep(1320, 0.3), 360);
+    vibrate([200, 100, 200, 100, 400]);
+    run = null;
+  }
+
+  function tick() {
+    if (!run || run.paused) return;
+    const elapsedMs = currentElapsedMs();
+
+    if (elapsedMs >= run.totalMs) { finish(); return; }
+
+    // Derive the active phase from elapsed wall-clock time. This loop also
+    // catches up across any phases that elapsed while the app was backgrounded.
+    let i = run.idx;
+    while (i < run.phases.length - 1 && elapsedMs >= run.cumEnds[i]) i++;
+    if (i !== run.idx) {
+      run.idx = i;
+      applyPhase();
+      lastBeepSecond = -1;
+      beep(1320, 0.18, 0.35);
+      vibrate(120);
+    }
+
+    const remainingMs = run.cumEnds[run.idx] - elapsedMs;
+    const seconds = Math.max(1, Math.ceil(remainingMs / 1000));
+    countdownEl.textContent = seconds;
+
+    if (seconds <= 3 && seconds >= 1 && seconds !== lastBeepSecond) {
+      lastBeepSecond = seconds;
+      beep(880, 0.08, 0.25);
+      vibrate(50);
+    }
+
+    const elapsedSec = Math.floor(elapsedMs / 1000);
+    elapsedLabel.textContent = fmtTime(elapsedSec);
+    remainingLabel.textContent = '-' + fmtTime(run.totalSec - elapsedSec);
+
+    rafId = requestAnimationFrame(tick);
+  }
+
+  // Register the service worker so the app loads offline (e.g. at the gym
+  // with no signal) once it's been opened at least once.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+
+  document.getElementById('startBtn').addEventListener('click', start);
+  stopBtn.addEventListener('click', () => { if (confirm('Stop workout?')) stop(); });
+  pauseBtn.addEventListener('click', togglePause);
+
+  document.addEventListener('touchmove', e => {
+    if (!timerScreen.classList.contains('hidden')) e.preventDefault();
+  }, { passive: false });
+
+  renderConfig();
+})();
+</script>
+</body>
+</html>
