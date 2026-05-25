@@ -4,7 +4,7 @@ A clean, single-file interval timer for workouts. Build a workout out of segment
 and repeating cycles (warmup / work / rest / cooldown), then run it with big,
 glanceable countdowns, audio cues, and vibration.
 
-**Live:** https://intervaltimer.apps.bochinski.dev
+**Live:** https://intervaltimer.bochinski.dev
 
 ## Use it as an app (iPhone / Safari)
 
@@ -41,4 +41,4 @@ python3 -m http.server 8000
 ## Hosting
 
 Static site on GitHub Pages, served from the repository root on `main`, with the custom
-domain in `CNAME` (`intervaltimer.apps.bochinski.dev`).
+domain in `CNAME` (`intervaltimer.bochinski.dev`).
