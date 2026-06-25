@@ -67,6 +67,43 @@
   }
   .brand::before { content: "■"; margin-right: 10px; color: var(--fg); }
 
+  .lib-btn {
+    background: var(--panel);
+    border: 1px solid var(--line); border-radius: 10px;
+    color: var(--fg);
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 11px; letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 9px 14px;
+  }
+  .lib-btn:active { background: #1f1f1f; }
+
+  .lib-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px;
+    background: var(--panel);
+    border: 1px solid var(--line); border-radius: 12px;
+    padding: 6px 6px 6px 16px;
+    margin-bottom: 10px;
+  }
+  .lib-row.active { border-color: var(--fg); }
+  .lib-row-main { flex: 1; padding: 10px 0; min-width: 0; }
+  .lib-name {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 16px; letter-spacing: 0.01em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .lib-meta {
+    font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--muted); font-weight: 700; margin-top: 4px;
+  }
+  .lib-del {
+    background: transparent; border: none;
+    color: var(--muted); font-size: 18px;
+    width: 44px; height: 44px; flex: 0 0 auto;
+  }
+  .lib-del:active { color: #f87171; }
+
   .workout-name {
     width: 100%; background: transparent; border: none; color: var(--fg);
     font-family: 'Archivo Black', sans-serif;
@@ -316,23 +353,51 @@
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.04em;
   }
-  .next-up {
-    text-align: center;
+  .up-next {
+    display: flex; gap: 8px;
+    overflow-x: auto; overflow-y: hidden;
+    padding: 2px 0 16px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    min-height: 58px;
+  }
+  .up-next::-webkit-scrollbar { display: none; }
+  .up-chip {
+    flex: 0 0 auto;
+    display: flex; align-items: center; gap: 9px;
+    background: rgba(0,0,0,0.16);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 12px;
+    padding: 8px 13px 8px 10px;
+  }
+  .up-chip .swatch { width: 7px; height: 26px; border-radius: 3px; }
+  .up-chip .lead {
+    font-size: 9px; letter-spacing: 0.18em;
+    text-transform: uppercase; opacity: 0.7; font-weight: 700;
+  }
+  .up-chip .nm {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 14px; letter-spacing: 0.01em; white-space: nowrap;
+  }
+  .up-chip .tm {
+    font-size: 13px; font-weight: 700; opacity: 0.85;
+    font-variant-numeric: tabular-nums; margin-left: 2px;
+  }
+  .up-empty {
+    align-self: center;
     font-size: 12px; letter-spacing: 0.2em;
-    text-transform: uppercase;
-    margin-bottom: 16px;
-    opacity: 0.75; font-weight: 700;
-    min-height: 16px;
+    text-transform: uppercase; opacity: 0.7; font-weight: 700;
+    padding: 8px 4px;
   }
   .controls {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
   }
   .ctrl-btn {
-    height: 64px;
+    height: 62px;
     border: 2px solid currentColor; background: transparent; color: inherit;
     border-radius: 14px;
     font-family: 'Archivo Black', sans-serif;
-    font-size: 14px; letter-spacing: 0.25em;
+    font-size: 13px; letter-spacing: 0.12em;
   }
   .ctrl-btn:active { transform: scale(0.98); }
   .ctrl-btn.primary { background: currentColor; }
@@ -350,7 +415,10 @@
 <body>
 
 <div id="configScreen">
-  <header class="top"><span class="brand">Interval</span></header>
+  <header class="top">
+    <span class="brand">Interval</span>
+    <button class="lib-btn" id="libBtn">Workouts</button>
+  </header>
   <input class="workout-name" id="workoutName" type="text" placeholder="Workout name" />
   <div class="total-summary" id="totalSummary">0:00 total</div>
   <div class="blocks" id="blocksList"></div>
@@ -369,9 +437,10 @@
   <div class="phase-label" id="phaseLabel">—</div>
   <div class="round-line" id="roundLine"></div>
   <div class="countdown" id="countdown">0</div>
-  <div class="next-up" id="nextUp"></div>
+  <div class="up-next" id="upNext"></div>
   <div class="controls">
     <button class="ctrl-btn" id="stopBtn">STOP</button>
+    <button class="ctrl-btn" id="skipBtn">SKIP</button>
     <button class="ctrl-btn primary" id="pauseBtn"><span>PAUSE</span></button>
   </div>
 </div>
@@ -380,6 +449,14 @@
 <div class="sheet" id="sheet">
   <div class="sheet-handle"></div>
   <div id="sheetBody"></div>
+</div>
+
+<div class="sheet-bg" id="libBg"></div>
+<div class="sheet" id="libSheet">
+  <div class="sheet-handle"></div>
+  <h3>Workouts</h3>
+  <div id="libList"></div>
+  <button class="add-sub" id="newWorkoutBtn">+ New Workout</button>
 </div>
 
 <script>
@@ -408,23 +485,46 @@
     ],
   };
 
-  let workout = loadWorkout();
+  let library = loadLibrary();
+  let workout = currentWorkout();
   let run = null;
   let rafId = null;
   let wakeLock = null;
   let audioCtx = null;
   let lastBeepSecond = -1;
 
-  function loadWorkout() {
+  function loadLibrary() {
     try {
-      const raw = localStorage.getItem('workout_v2');
-      if (raw) return JSON.parse(raw);
+      const raw = localStorage.getItem('workouts_v3');
+      if (raw) {
+        const lib = JSON.parse(raw);
+        if (lib && Array.isArray(lib.workouts) && lib.workouts.length) {
+          lib.workouts.forEach(w => { if (!w.id) w.id = uid(); });
+          if (!lib.workouts.some(w => w.id === lib.currentId)) lib.currentId = lib.workouts[0].id;
+          return lib;
+        }
+      }
     } catch {}
-    return structuredClone(DEFAULT_WORKOUT);
+    // First run on this version: migrate the old single workout (workout_v2)
+    // into a one-item library, or seed from the default.
+    let seed = null;
+    try {
+      const old = localStorage.getItem('workout_v2');
+      if (old) seed = JSON.parse(old);
+    } catch {}
+    if (!seed) seed = structuredClone(DEFAULT_WORKOUT);
+    if (!seed.id) seed.id = uid();
+    return { workouts: [seed], currentId: seed.id };
   }
-  function saveWorkout() {
-    localStorage.setItem('workout_v2', JSON.stringify(workout));
+  function currentWorkout() {
+    return library.workouts.find(w => w.id === library.currentId) || library.workouts[0];
   }
+  function saveLibrary() {
+    localStorage.setItem('workouts_v3', JSON.stringify(library));
+  }
+  // The editor mutates `workout`, which is a reference into the library, so
+  // persisting the current workout just means persisting the whole library.
+  function saveWorkout() { saveLibrary(); }
 
   // Wake lock
   async function requestWakeLock() {
@@ -482,9 +582,9 @@
   const workoutNameEl = document.getElementById('workoutName');
   const totalSummary = document.getElementById('totalSummary');
 
-  function totalSeconds() {
+  function totalSecondsOf(w) {
     let t = 0;
-    workout.blocks.forEach(b => {
+    w.blocks.forEach(b => {
       if (b.type === 'segment') t += b.seconds;
       else if (b.type === 'repeat') {
         const inner = b.segments.reduce((a, s) => a + s.seconds, 0);
@@ -493,6 +593,7 @@
     });
     return t;
   }
+  function totalSeconds() { return totalSecondsOf(workout); }
 
   function renderConfig() {
     workoutNameEl.value = workout.name;
@@ -740,6 +841,59 @@
     saveWorkout(); renderConfig(); closeSheet();
   }
 
+  // Workout library — pick / create / delete saved workouts.
+  const libBtn = document.getElementById('libBtn');
+  const libSheet = document.getElementById('libSheet');
+  const libBg = document.getElementById('libBg');
+  const libList = document.getElementById('libList');
+
+  function openLib() { renderLibrary(); libSheet.classList.add('open'); libBg.classList.add('open'); }
+  function closeLib() { libSheet.classList.remove('open'); libBg.classList.remove('open'); }
+
+  function renderLibrary() {
+    libList.innerHTML = '';
+    library.workouts.forEach(w => {
+      const active = w.id === library.currentId;
+      const row = document.createElement('div');
+      row.className = 'lib-row' + (active ? ' active' : '');
+      row.innerHTML = `
+        <div class="lib-row-main">
+          <div class="lib-name">${escapeHtml(w.name || 'Untitled')}</div>
+          <div class="lib-meta">${fmtTime(totalSecondsOf(w))}${active ? ' · current' : ''}</div>
+        </div>
+        <button class="lib-del" aria-label="Delete">✕</button>`;
+      row.querySelector('.lib-row-main').addEventListener('click', () => selectWorkout(w.id));
+      row.querySelector('.lib-del').addEventListener('click', e => { e.stopPropagation(); deleteWorkout(w.id); });
+      libList.appendChild(row);
+    });
+  }
+  function selectWorkout(id) {
+    library.currentId = id;
+    workout = currentWorkout();
+    saveLibrary(); renderConfig(); closeLib();
+  }
+  function deleteWorkout(id) {
+    if (library.workouts.length <= 1) { alert('Keep at least one workout.'); return; }
+    const w = library.workouts.find(x => x.id === id);
+    if (!confirm(`Delete "${w ? w.name : 'workout'}"?`)) return;
+    library.workouts = library.workouts.filter(x => x.id !== id);
+    if (library.currentId === id) library.currentId = library.workouts[0].id;
+    workout = currentWorkout();
+    saveLibrary(); renderConfig(); renderLibrary();
+  }
+  function newWorkout() {
+    const w = { id: uid(), name: 'New Workout', blocks: [
+      { id: uid(), type: 'segment', name: 'Work', seconds: 60, intensity: 'work' },
+    ]};
+    library.workouts.push(w);
+    library.currentId = w.id;
+    workout = currentWorkout();
+    saveLibrary(); renderConfig(); closeLib();
+  }
+  libBtn.addEventListener('click', openLib);
+  libBg.addEventListener('click', closeLib);
+  document.getElementById('newWorkoutBtn').addEventListener('click', newWorkout);
+
   // Flatten + run
   function flatten() {
     const phases = [];
@@ -769,9 +923,10 @@
   const roundLine = document.getElementById('roundLine');
   const elapsedLabel = document.getElementById('elapsedLabel');
   const remainingLabel = document.getElementById('remainingLabel');
-  const nextUpEl = document.getElementById('nextUp');
+  const upNextEl = document.getElementById('upNext');
   const pauseBtn = document.getElementById('pauseBtn');
   const stopBtn = document.getElementById('stopBtn');
+  const skipBtn = document.getElementById('skipBtn');
 
   // Elapsed time is derived from the wall clock (performance.now), not by
   // counting frames. This keeps the timer correct across screen locks and
@@ -839,8 +994,24 @@
     document.body.className = 'phase-' + p.intensity;
     phaseLabel.textContent = p.name;
     roundLine.textContent = p.rep ? `Round ${p.rep} of ${p.totalReps}` : '';
-    const next = run.phases[run.idx + 1];
-    nextUpEl.textContent = next ? `Next: ${next.name} · ${fmtTime(next.seconds)}` : 'Final segment';
+    renderUpNext();
+  }
+
+  // The scrollable strip of what's coming after the current phase. The first
+  // chip is the very next phase; swipe horizontally to see further ahead.
+  function renderUpNext() {
+    const up = run.phases.slice(run.idx + 1);
+    if (!up.length) { upNextEl.innerHTML = '<div class="up-empty">Final segment</div>'; return; }
+    upNextEl.innerHTML = up.map((p, i) => `
+      <div class="up-chip">
+        <div class="swatch" style="background: var(--${p.intensity})"></div>
+        <div>
+          <div class="lead">${i === 0 ? 'Next' : 'Then'}</div>
+          <div class="nm">${escapeHtml(p.name)}</div>
+        </div>
+        <div class="tm">${fmtTime(p.seconds)}</div>
+      </div>`).join('');
+    upNextEl.scrollLeft = 0;
   }
 
   function finish() {
@@ -850,7 +1021,7 @@
     phaseLabel.textContent = 'DONE';
     roundLine.textContent = '';
     countdownEl.textContent = '✓';
-    nextUpEl.textContent = workout.name;
+    upNextEl.innerHTML = '<div class="up-empty">' + escapeHtml(workout.name) + '</div>';
     elapsedLabel.textContent = fmtTime(run.totalSec);
     remainingLabel.textContent = '-0:00';
     pauseBtn.querySelector('span').textContent = 'CLOSE';
@@ -862,14 +1033,16 @@
     run = null;
   }
 
-  function tick() {
-    if (!run || run.paused) return;
+  // One display update: derive the active phase from elapsed wall-clock time
+  // (this also catches up across any phases that elapsed while the app was
+  // backgrounded), then paint the countdown. Returns false once the workout
+  // has finished so the animation loop can stop.
+  function update() {
+    if (!run) return false;
     const elapsedMs = currentElapsedMs();
 
-    if (elapsedMs >= run.totalMs) { finish(); return; }
+    if (elapsedMs >= run.totalMs) { finish(); return false; }
 
-    // Derive the active phase from elapsed wall-clock time. This loop also
-    // catches up across any phases that elapsed while the app was backgrounded.
     let i = run.idx;
     while (i < run.phases.length - 1 && elapsedMs >= run.cumEnds[i]) i++;
     if (i !== run.idx) {
@@ -893,8 +1066,25 @@
     const elapsedSec = Math.floor(elapsedMs / 1000);
     elapsedLabel.textContent = fmtTime(elapsedSec);
     remainingLabel.textContent = '-' + fmtTime(run.totalSec - elapsedSec);
+    return true;
+  }
 
-    rafId = requestAnimationFrame(tick);
+  function tick() {
+    if (!run || run.paused) return;
+    if (update()) rafId = requestAnimationFrame(tick);
+  }
+
+  // Skip straight to the next phase by fast-forwarding the wall clock to the
+  // current phase's end. The next phase then runs its full duration; update()
+  // advances run.idx and, if we skipped the last phase, calls finish().
+  function skipPhase() {
+    if (!run) return;
+    ensureAudio();
+    run.baseElapsedMs = run.cumEnds[run.idx];
+    run.resumedAt = performance.now();
+    lastBeepSecond = -1;
+    cancelAnimationFrame(rafId);
+    if (run.paused) update(); else tick();
   }
 
   // Register the service worker so the app loads offline (e.g. at the gym
@@ -907,6 +1097,7 @@
 
   document.getElementById('startBtn').addEventListener('click', start);
   stopBtn.addEventListener('click', () => { if (confirm('Stop workout?')) stop(); });
+  skipBtn.addEventListener('click', skipPhase);
   // pauseBtn uses .onclick (set in start(), swapped to stop() on the DONE screen).
   // Don't also addEventListener here, or each tap fires the handler twice and
   // pause/resume cancel out — making the button look dead.
